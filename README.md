@@ -38,6 +38,7 @@ This repo does not reimplement Hermes. It packages a clean Docker Compose deploy
 - outbound internet access from the VPS/container
 - an OpenRouter API key
 - a Tavily API key
+- optionally, a Brave Search API key
 - a Telegram bot token from `@BotFather`
 
 ## Setup
@@ -59,7 +60,13 @@ Edit `.env` and fill in:
 
 - `OPENROUTER_API_KEY`
 - `TAVILY_API_KEY`
+- `BRAVE_SEARCH_API_KEY` if you want a backup search provider available
 - `TELEGRAM_BOT_TOKEN`
+
+This repo also includes standby values for model and key rotation:
+
+- `OPENROUTER_MODEL_PRIMARY=qwen/qwen3.6-plus:free`
+- `OPENROUTER_MODEL_FALLBACK=nvidia/nemotron-3-super-120b-a12b:free`
 
 ## First-time Hermes initialization
 
@@ -78,8 +85,8 @@ docker compose run --rm pyagent hermes setup
 During setup:
 
 - choose `OpenRouter` as the provider
-- use your OpenRouter key
-- pick the model you want Hermes to use
+- use your primary OpenRouter key
+- pick `qwen/qwen3.6-plus:free` as the starting model
 - if Hermes asks for search tooling, provide the Tavily key
 
 Then configure messaging:
@@ -133,6 +140,36 @@ If you later need Pyagent to talk to other services, connect them through an exp
 - Back up `./data/hermes` because it contains the Hermes profile, memory, and gateway state.
 - Pin `PYAGENT_IMAGE` to a specific tag once you are happy with a release.
 - Start with a lightweight OpenRouter model and upgrade only if the agent quality is not enough.
+
+## OpenRouter model choices
+
+This repo keeps two OpenRouter model IDs in `.env` so you have a documented primary and fallback choice:
+
+- primary model: `qwen/qwen3.6-plus:free`
+- fallback model: `nvidia/nemotron-3-super-120b-a12b:free`
+
+For Tavily, use a single `TAVILY_API_KEY`.
+
+If you hit model-side limits or quality issues, switch the active OpenRouter model in your Hermes configuration and restart the container.
+
+## Search provider option
+
+This repo also includes an optional `BRAVE_SEARCH_API_KEY` in `.env` so you can keep Brave Search available as a standby provider.
+
+Current Brave Search pricing I verified on April 6, 2026:
+
+- Search API pricing is listed as `$5 per 1,000 requests`
+- Brave also says it includes `$5 in free monthly credits`
+
+Important limit:
+
+- I did not verify official Hermes documentation showing a native Brave Search provider or automatic search-provider failover.
+- So for this repo, Brave should be treated as a backup option you can switch to if Tavily usage becomes a problem, not an automatic fallback.
+
+Brave references:
+
+- https://brave.com/search/api/
+- https://api-dashboard.search.brave.com/documentation/pricing
 
 ## Commands to do the needful on the VPS
 
