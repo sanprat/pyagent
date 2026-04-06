@@ -5,6 +5,7 @@ Pyagent is a thin deployment wrapper for running [Hermes Agent](https://hermes-a
 This repo does not reimplement Hermes. It packages a clean Docker Compose deployment with:
 
 - Hermes Agent in a dedicated container
+- a local OpenAI-compatible proxy for OpenRouter model fallback
 - persistent Hermes state under `./data/hermes`
 - OpenRouter for LLM access
 - Tavily for web search
@@ -27,6 +28,10 @@ This repo does not reimplement Hermes. It packages a clean Docker Compose deploy
 ├── docker-compose.yml
 ├── LICENSE
 ├── README.md
+├── proxy/
+│   ├── app.py
+│   ├── Dockerfile
+│   └── requirements.txt
 └── scripts/
     └── container-entrypoint.sh
 ```
@@ -62,18 +67,33 @@ Edit `.env` and fill in:
 - `TAVILY_API_KEY`
 - `BRAVE_SEARCH_API_KEY` if you want a backup search provider available
 - `TELEGRAM_BOT_TOKEN`
+- `PYAGENT_PROXY_API_KEY`
 
-This repo also includes standby values for model and key rotation:
+This repo also includes standby values for OpenRouter model rotation:
 
 - `OPENROUTER_MODEL_PRIMARY=qwen/qwen3.6-plus:free`
-- `OPENROUTER_MODEL_FALLBACK=nvidia/nemotron-3-super-120b-a12b:free`
+- `OPENROUTER_MODEL_FALLBACK_1=nvidia/nemotron-3-super-120b-a12b:free`
+- `OPENROUTER_MODEL_FALLBACK_2=arcee-ai/trinity-large-preview:free`
+- `OPENROUTER_MODEL_FALLBACK_3=stepfun/step-3.5-flash:free`
+
+The proxy exposes an OpenAI-compatible endpoint for Hermes at:
+
+- base URL: `http://openrouter-proxy:8000/v1`
+- API key: whatever you set in `PYAGENT_PROXY_API_KEY`
 
 ## First-time Hermes initialization
 
-Pull the image:
+Build the proxy image and pull the Hermes image:
 
 ```bash
-docker compose pull
+docker compose build openrouter-proxy
+docker compose pull pyagent
+```
+
+Start the proxy first:
+
+```bash
+docker compose up -d openrouter-proxy
 ```
 
 Run the Hermes model/setup wizard inside the container:
@@ -84,10 +104,13 @@ docker compose run --rm pyagent hermes setup
 
 During setup:
 
-- choose `OpenRouter` as the provider
-- use your primary OpenRouter key
-- pick `qwen/qwen3.6-plus:free` as the starting model
+- choose `Custom API` or the OpenAI-compatible custom endpoint option
+- set base URL to `http://openrouter-proxy:8000/v1`
+- set API key to the value of `PYAGENT_PROXY_API_KEY`
+- set model to `qwen/qwen3.6-plus:free`
 - if Hermes asks for search tooling, provide the Tavily key
+
+The proxy will automatically retry fallback models in order if the primary model hits rate limits or transient upstream failures.
 
 Then configure messaging:
 
@@ -143,14 +166,20 @@ If you later need Pyagent to talk to other services, connect them through an exp
 
 ## OpenRouter model choices
 
-This repo keeps two OpenRouter model IDs in `.env` so you have a documented primary and fallback choice:
+This repo keeps four OpenRouter model IDs in `.env` and uses them directly in the local proxy:
 
 - primary model: `qwen/qwen3.6-plus:free`
-- fallback model: `nvidia/nemotron-3-super-120b-a12b:free`
+- fallback 1: `nvidia/nemotron-3-super-120b-a12b:free`
+- fallback 2: `arcee-ai/trinity-large-preview:free`
+- fallback 3: `stepfun/step-3.5-flash:free`
 
 For Tavily, use a single `TAVILY_API_KEY`.
 
-If you hit model-side limits or quality issues, switch the active OpenRouter model in your Hermes configuration and restart the container.
+The proxy tries the configured model first and then walks the fallback chain on upstream rate limits and transient server errors. Successful primary-model calls should be nearly as fast as a direct API call because the proxy only adds a local network hop on your VPS.
+
+Important date note:
+
+- OpenRouter currently marks `arcee-ai/trinity-large-preview:free` as going away on April 10, 2026, so treat it as a short-lived fallback rather than a stable long-term choice.
 
 ## Search provider option
 
@@ -178,7 +207,9 @@ git clone https://github.com/sanprat/pyagent.git
 cd pyagent
 cp .env.example .env
 nano .env
-docker compose pull
+docker compose build openrouter-proxy
+docker compose pull pyagent
+docker compose up -d openrouter-proxy
 docker compose run --rm pyagent hermes setup
 docker compose run --rm pyagent hermes gateway setup
 docker compose up -d

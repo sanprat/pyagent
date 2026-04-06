@@ -1,16 +1,35 @@
 services:
-  pyagent:
-    image: ${PYAGENT_IMAGE:-nousresearch/hermes-agent:latest}
-    container_name: ${PYAGENT_CONTAINER_NAME:-pyagent-hermes}
+  openrouter-proxy:
+    build:
+      context: .
+      dockerfile: proxy/Dockerfile
+    container_name: pyagent-openrouter-proxy
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      TZ: ${TZ:-Asia/Kolkata}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      PYAGENT_PROXY_API_KEY: ${PYAGENT_PROXY_API_KEY:-}
+      OPENROUTER_MODEL_PRIMARY: ${OPENROUTER_MODEL_PRIMARY:-qwen/qwen3.6-plus:free}
+      OPENROUTER_MODEL_FALLBACK_1: ${OPENROUTER_MODEL_FALLBACK_1:-nvidia/nemotron-3-super-120b-a12b:free}
+      OPENROUTER_MODEL_FALLBACK_2: ${OPENROUTER_MODEL_FALLBACK_2:-arcee-ai/trinity-large-preview:free}
+      OPENROUTER_MODEL_FALLBACK_3: ${OPENROUTER_MODEL_FALLBACK_3:-stepfun/step-3.5-flash:free}
+      OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-45}
+
+  pyagent:
+    image: ${PYAGENT_IMAGE:-nousresearch/hermes-agent:latest}
+    container_name: ${PYAGENT_CONTAINER_NAME:-pyagent-hermes}
+    restart: unless-stopped
+    depends_on:
+      - openrouter-proxy
+    env_file:
+      - .env
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
+      PYAGENT_PROXY_BASE_URL: http://openrouter-proxy:8000/v1
+      PYAGENT_PROXY_API_KEY: ${PYAGENT_PROXY_API_KEY:-}
     volumes:
       - ./data/hermes:/root/.hermes
       - ./:/workspace
@@ -18,4 +37,3 @@ services:
     stdin_open: true
     tty: true
     entrypoint: ["/bin/sh", "/workspace/scripts/container-entrypoint.sh"]
-
