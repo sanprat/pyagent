@@ -1,0 +1,21 @@
+services:
+  pyagent:
+    image: ${PYAGENT_IMAGE:-nousresearch/hermes-agent:latest}
+    container_name: ${PYAGENT_CONTAINER_NAME:-pyagent-hermes}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: ${TZ:-Asia/Kolkata}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
+    volumes:
+      - ./data/hermes:/root/.hermes
+      - ./:/workspace
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    entrypoint: ["/bin/sh", "/workspace/scripts/container-entrypoint.sh"]
+
