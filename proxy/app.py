@@ -7,16 +7,16 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-PRIMARY_MODEL = os.getenv("OPENROUTER_MODEL_PRIMARY", "qwen/qwen3.6-plus:free")
+PRIMARY_MODEL = os.getenv("OPENROUTER_MODEL_PRIMARY", "google/gemma-4-31b-it:free")
 FALLBACK_MODELS = [
     os.getenv("OPENROUTER_MODEL_FALLBACK_1", "nvidia/nemotron-3-super-120b-a12b:free"),
     os.getenv("OPENROUTER_MODEL_FALLBACK_2", "arcee-ai/trinity-large-preview:free"),
-    os.getenv("OPENROUTER_MODEL_FALLBACK_3", "stepfun/step-3.5-flash:free"),
+    os.getenv("OPENROUTER_MODEL_FALLBACK_3", "google/gemma-4-26b-a4b-it:free"),
 ]
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 PROXY_API_KEY = os.getenv("PYAGENT_PROXY_API_KEY", "")
 TIMEOUT_SECONDS = float(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "45"))
-RETRY_STATUSES = {408, 409, 425, 429, 500, 502, 503, 504}
+RETRY_STATUSES = {404, 408, 409, 425, 429, 500, 502, 503, 504}
 
 app = FastAPI(title="Pyagent OpenRouter Proxy")
 
@@ -71,7 +71,8 @@ async def list_models(request: Request) -> dict[str, Any]:
     return {
         "object": "list",
         "data": [
-            {"id": model, "object": "model", "owned_by": "openrouter"} for model in models
+            {"id": model, "object": "model", "owned_by": "openrouter"}
+            for model in models
         ],
     }
 

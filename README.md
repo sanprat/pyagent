@@ -18,6 +18,7 @@ This repo does not reimplement Hermes. It packages a clean Docker Compose deploy
 - persistent memory/config across restarts
 - simple `docker compose` lifecycle
 - no secrets committed to git
+- web UI for chat, terminal, memory, skills, and files
 
 ## Repo layout
 
@@ -28,6 +29,12 @@ This repo does not reimplement Hermes. It packages a clean Docker Compose deploy
 ├── docker-compose.yml
 ├── LICENSE
 ├── README.md
+├── docker/
+│   ├── agent/
+│   │   └── Dockerfile
+│   └── workspace/
+│       ├── .dockerignore
+│       └── Dockerfile
 ├── proxy/
 │   ├── app.py
 │   ├── Dockerfile
@@ -83,11 +90,11 @@ The proxy exposes an OpenAI-compatible endpoint for Hermes at:
 
 ## First-time Hermes initialization
 
-Build the proxy image and pull the Hermes image:
+Build the proxy and agent images:
 
 ```bash
 docker compose build openrouter-proxy
-docker compose pull pyagent
+docker compose build hermes-agent
 ```
 
 Start the proxy first:
@@ -99,7 +106,7 @@ docker compose up -d openrouter-proxy
 Run the Hermes model/setup wizard inside the container:
 
 ```bash
-docker compose run --rm pyagent hermes setup
+docker compose run --rm hermes-agent hermes setup
 ```
 
 During setup:
@@ -115,7 +122,7 @@ The proxy will automatically retry fallback models in order if the primary model
 Then configure messaging:
 
 ```bash
-docker compose run --rm pyagent hermes gateway setup
+docker compose run --rm hermes-agent hermes gateway setup
 ```
 
 During gateway setup:
@@ -136,7 +143,7 @@ docker compose up -d
 Check logs:
 
 ```bash
-docker compose logs -f pyagent
+docker compose logs -f hermes-agent
 ```
 
 Stop it:
@@ -148,7 +155,52 @@ docker compose down
 Restart it:
 
 ```bash
-docker compose restart pyagent
+docker compose restart hermes-agent
+```
+
+## Web UI (Hermes Workspace)
+
+Pyagent now includes a web UI powered by [Hermes Workspace](https://github.com/outsourc-e/hermes-workspace).
+
+Features: chat with SSE streaming, file browser, terminal, memory browser, skills browser, 8 themes.
+
+Access at `http://<your-vps-ip>:3000` after setup.
+
+### First-time setup with workspace
+
+```bash
+# 1. Build all images and start proxy + agent
+docker compose build
+docker compose up -d openrouter-proxy hermes-agent
+
+# 2. Run Hermes setup (interactive)
+docker compose run --rm hermes-agent hermes setup
+#    - choose Custom API / OpenAI-compatible endpoint
+#    - set base URL: http://openrouter-proxy:8000/v1
+#    - set API key: your PYAGENT_PROXY_API_KEY value
+#    - set model: google/gemma-4-31b-it:free
+
+# 3. Configure Telegram gateway (optional)
+docker compose run --rm hermes-agent hermes gateway setup
+
+# 4. Enable HTTP API for the workspace
+docker compose exec hermes-agent sh -c 'echo "API_SERVER_ENABLED=true" >> /root/.hermes/.env'
+
+# 5. Restart agent and start workspace
+docker compose restart hermes-agent
+docker compose up -d
+
+# 6. Open http://<your-vps-ip>:3000
+```
+
+> Port 3000 must be open on your VPS firewall for the web UI.
+
+### Password protection (optional)
+
+To require a password for the web UI, add to your `.env`:
+
+```
+HERMES_PASSWORD=your_password_here
 ```
 
 ## Suggested VPS deployment flow
@@ -207,13 +259,14 @@ git clone https://github.com/sanprat/pyagent.git
 cd pyagent
 cp .env.example .env
 nano .env
-docker compose build openrouter-proxy
-docker compose pull pyagent
-docker compose up -d openrouter-proxy
-docker compose run --rm pyagent hermes setup
-docker compose run --rm pyagent hermes gateway setup
+docker compose build
+docker compose up -d openrouter-proxy hermes-agent
+docker compose run --rm hermes-agent hermes setup
+docker compose run --rm hermes-agent hermes gateway setup
+docker compose exec hermes-agent sh -c 'echo "API_SERVER_ENABLED=true" >> /root/.hermes/.env'
+docker compose restart hermes-agent
 docker compose up -d
-docker compose logs -f pyagent
+docker compose logs -f hermes-agent
 ```
 
 ## Notes on Hermes

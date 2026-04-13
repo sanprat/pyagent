@@ -10,15 +10,17 @@ services:
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       PYAGENT_PROXY_API_KEY: ${PYAGENT_PROXY_API_KEY:-}
-      OPENROUTER_MODEL_PRIMARY: ${OPENROUTER_MODEL_PRIMARY:-qwen/qwen3.6-plus:free}
+      OPENROUTER_MODEL_PRIMARY: ${OPENROUTER_MODEL_PRIMARY:-google/gemma-4-31b-it:free}
       OPENROUTER_MODEL_FALLBACK_1: ${OPENROUTER_MODEL_FALLBACK_1:-nvidia/nemotron-3-super-120b-a12b:free}
       OPENROUTER_MODEL_FALLBACK_2: ${OPENROUTER_MODEL_FALLBACK_2:-arcee-ai/trinity-large-preview:free}
-      OPENROUTER_MODEL_FALLBACK_3: ${OPENROUTER_MODEL_FALLBACK_3:-stepfun/step-3.5-flash:free}
+      OPENROUTER_MODEL_FALLBACK_3: ${OPENROUTER_MODEL_FALLBACK_3:-google/gemma-4-26b-a4b-it:free}
       OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-45}
 
-  pyagent:
-    image: ${PYAGENT_IMAGE:-nousresearch/hermes-agent:latest}
-    container_name: ${PYAGENT_CONTAINER_NAME:-pyagent-hermes}
+  hermes-agent:
+    build:
+      context: .
+      dockerfile: docker/agent/Dockerfile
+    container_name: pyagent-hermes-agent
     restart: unless-stopped
     depends_on:
       - openrouter-proxy
@@ -28,12 +30,32 @@ services:
       TZ: ${TZ:-Asia/Kolkata}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      PYAGENT_PROXY_BASE_URL: http://openrouter-proxy:8000/v1
-      PYAGENT_PROXY_API_KEY: ${PYAGENT_PROXY_API_KEY:-}
     volumes:
       - ./data/hermes:/root/.hermes
       - ./:/workspace
     working_dir: /workspace
-    stdin_open: true
-    tty: true
-    entrypoint: ["/bin/sh", "/workspace/scripts/container-entrypoint.sh"]
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8642/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - '8642:8642'
+
+  hermes-workspace:
+    build:
+      context: .
+      dockerfile: docker/workspace/Dockerfile
+    container_name: pyagent-workspace
+    restart: unless-stopped
+    depends_on:
+      hermes-agent:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      HERMES_API_URL: http://hermes-agent:8642
+      PORT: 3000
+    ports:
+      - '3000:3000'
