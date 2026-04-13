@@ -15,4 +15,4 @@ if [ ! -d /root/.hermes ] || [ -z "$(ls -A /root/.hermes 2>/dev/null)" ]; then
   exit 1
 fi
 
-exec hermes --gateway
+exec hermes gateway
