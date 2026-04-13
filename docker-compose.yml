@@ -58,4 +58,4 @@ services:
       HERMES_API_URL: http://hermes-agent:8642
       PORT: 3000
     ports:
-      - '3000:3000'
+      - '3001:3000'
