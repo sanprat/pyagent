@@ -1,20 +1,4 @@
 services:
-  openrouter-proxy:
-    build:
-      context: .
-      dockerfile: proxy/Dockerfile
-    container_name: pyagent-openrouter-proxy
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      PYAGENT_PROXY_API_KEY: ${PYAGENT_PROXY_API_KEY:-}
-      OPENROUTER_MODEL_PRIMARY: ${OPENROUTER_MODEL_PRIMARY:-nvidia/nemotron-3-super-120b-a12b:free}
-      OPENROUTER_MODEL_FALLBACK_1: ${OPENROUTER_MODEL_FALLBACK_1:-arcee-ai/trinity-large-preview:free}
-      OPENROUTER_MODEL_FALLBACK_2: ${OPENROUTER_MODEL_FALLBACK_2:-openai/gpt-oss-120b:free}
-      OPENROUTER_MODEL_FALLBACK_3: ${OPENROUTER_MODEL_FALLBACK_3:-nvidia/nemotron-3-nano-30b-a3b:free}
-      OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-45}
 
   hermes-agent:
     build:
@@ -22,8 +6,6 @@ services:
       dockerfile: docker/agent/Dockerfile
     container_name: pyagent-hermes-agent
     restart: unless-stopped
-    depends_on:
-      - openrouter-proxy
     env_file:
       - .env
     environment:

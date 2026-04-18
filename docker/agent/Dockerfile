@@ -8,7 +8,7 @@ RUN git clone https://github.com/outsourc-e/hermes-agent.git /app
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -e .[messaging]
 
 EXPOSE 8642
 
